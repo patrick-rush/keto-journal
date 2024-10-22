@@ -23,7 +23,7 @@ const RANGES = {
     greenCeil: 2000,
     yellowCeil: 2500,
   },
-}
+};
 
 const COLS = {
   TIMESTAMP: 1,
@@ -39,59 +39,74 @@ const COLS = {
   FATS_TODAY: 11,
   PROTEINS_TODAY: 12,
   CALORIES_TODAY: 13,
-}
+};
 
 function GET_MACROS(item, quantity, units, brandInfo) {
-  if (item === '' || quantity === '') return [[0, 0, 0, 0]];
+  if (item === "" || quantity === "") return [[0, 0, 0, 0]];
 
-  const apiKey = PropertiesService.getScriptProperties().getProperty('OPEN_AI_API_KEY');
-  const url = 'https://api.openai.com/v1/chat/completions';
+  const apiKey =
+    PropertiesService.getScriptProperties().getProperty("OPEN_AI_API_KEY");
+  const url = "https://api.openai.com/v1/chat/completions";
 
   const headers = {
-    'Authorization': `Bearer ${apiKey}`,
-    'Content-Type': 'application/json'
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
   };
 
-  const queryContent = `Estimate the fat, carbohydrates, fiber, proteins, and calories for ${quantity} ${units} of ${item}`
-  if (brandInfo) queryContent + ' (brand information:' + brandInfo + ')';
+  const queryContent = `Estimate the fat, carbohydrates, fiber, proteins, and calories for ${quantity} ${units} of ${item}`;
+  if (brandInfo) queryContent + " (brand information:" + brandInfo + ")";
 
   const data = {
-    model: 'gpt-4-0613',
+    model: "gpt-4-0613",
     messages: [
       {
-        role: 'system',
-        content: 'You are a nutrition expert who provides food macro information in JSON format.'
+        role: "system",
+        content:
+          "You are a nutrition expert who provides food macro information in JSON format.",
       },
       {
-        role: 'user',
-        content: `Estimate the fat, carbohydrates, fiber, proteins, and calories for ${quantity} ${units} of ${item}.`
-      }
+        role: "user",
+        content: `Estimate the fat, carbohydrates, fiber, proteins, and calories for ${quantity} ${units} of ${item}.`,
+      },
     ],
     functions: [
       {
         name: "provide_macros",
-        description: "Provides the macronutrient breakdown for a given food item",
+        description:
+          "Provides the macronutrient breakdown for a given food item",
         parameters: {
           type: "object",
           properties: {
-            fats: { type: "number", description: "The amount of fats in grams" },
-            carbohydrates: { type: "number", description: "The amount of carbohydrates in grams" },
-            fiber: { type: "number", description: "The amount of fiber in grams"},
-            proteins: { type: "number", description: "The amount of proteins in grams" },
-            calories: { type: "number", description: "The amount of calories" }
+            fats: {
+              type: "number",
+              description: "The amount of fats in grams",
+            },
+            carbohydrates: {
+              type: "number",
+              description: "The amount of carbohydrates in grams",
+            },
+            fiber: {
+              type: "number",
+              description: "The amount of fiber in grams",
+            },
+            proteins: {
+              type: "number",
+              description: "The amount of proteins in grams",
+            },
+            calories: { type: "number", description: "The amount of calories" },
           },
-          required: ["fats", "carbohydrates", "fiber", "proteins", "calories"]
-        }
-      }
+          required: ["fats", "carbohydrates", "fiber", "proteins", "calories"],
+        },
+      },
     ],
-    function_call: { name: "provide_macros" }
+    function_call: { name: "provide_macros" },
   };
 
   const options = {
-    method: 'post',
+    method: "post",
     headers: headers,
     payload: JSON.stringify(data),
-    muteHttpExceptions: true
+    muteHttpExceptions: true,
   };
 
   try {
@@ -105,7 +120,7 @@ function GET_MACROS(item, quantity, units, brandInfo) {
 
     return [[carbs, macros.fats, macros.proteins, macros.calories]];
   } catch (error) {
-    Logger.log('Error fetching macro estimates: ' + error);
+    Logger.log("Error fetching macro estimates: " + error);
     return null;
   }
 }
@@ -117,7 +132,7 @@ function ON_FORM_SUBMIT(e) {
 
   const foodItem = sheet.getRange(row, COLS.FOOD_ITEM).getValue();
   const quantity = sheet.getRange(row, COLS.QUANTITY).getValue();
-  const unit = sheet.getRange(row, COLS.UNITS).getValue() ?? 'unit(s)';
+  const unit = sheet.getRange(row, COLS.UNITS).getValue() ?? "unit(s)";
   const brandInfo = sheet.getRange(row, COLS.BRAND_INFO).getValue();
 
   if (foodItem && quantity && unit) {
@@ -130,14 +145,22 @@ function ON_FORM_SUBMIT(e) {
     const dateFormat = "MM/dd/yyyy";
 
     let totalCarbs = 0,
-        totalFats = 0,
-        totalProteins = 0,
-        totalCalories = 0;
-    
+      totalFats = 0,
+      totalProteins = 0,
+      totalCalories = 0;
+
     for (let r = row; r >= 2; r--) {
       const entryDate = sheet.getRange(r, COLS.TIMESTAMP).getValue();
-      const formattedEntryDate = Utilities.formatDate(entryDate, Session.getScriptTimeZone(), dateFormat);
-      const formattedToday = Utilities.formatDate(today, Session.getScriptTimeZone(), dateFormat);
+      const formattedEntryDate = Utilities.formatDate(
+        entryDate,
+        Session.getScriptTimeZone(),
+        dateFormat
+      );
+      const formattedToday = Utilities.formatDate(
+        today,
+        Session.getScriptTimeZone(),
+        dateFormat
+      );
 
       if (formattedEntryDate !== formattedToday) break;
 
@@ -148,84 +171,123 @@ function ON_FORM_SUBMIT(e) {
       totalCalories += sheet.getRange(r, COLS.CALORIES).getValue() ?? 0;
     }
 
-    const totals = [[
-      totalCarbs,
-      totalFats,
-      totalProteins,
-      totalCalories
-    ]];
+    const totals = [[totalCarbs, totalFats, totalProteins, totalCalories]];
 
     sheet.getRange(row, COLS.CARBS_TODAY, 1, 4).setValues(totals);
 
     if (parseInt(totalCarbs) > RANGES.carbs.greenCeil) {
       const prevRowIndex = row - 1;
       if (prevRowIndex < 1) return;
-      const prevRowCarbs = sheet.getRange(prevRowIndex, COLS.CARBS_TODAY).getValue();
+      const prevRowCarbs = sheet
+        .getRange(prevRowIndex, COLS.CARBS_TODAY)
+        .getValue();
       if (prevRowCarbs > RANGES.carbs.greenCeil) return;
-      SEND_WARNING_NOTIFICATION("Keto Warning!", `Warning: You have exceeded the total recommended carb allowance for the day. You have had ${parseFloat(totalCarbs).toFixed(2)} carbs today.`);
+      SEND_WARNING_NOTIFICATION(
+        "Keto Warning!",
+        `Warning: You have exceeded the total recommended carb allowance for the day. You have had ${parseFloat(
+          totalCarbs
+        ).toFixed(2)} carbs today.`
+      );
     }
   }
 }
 
 function PRODUCE_RECAP() {
-  const macrosSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("MACROS");
-  const recapsSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RECAPS");
+  const macrosSheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("MACROS");
+  const recapsSheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("RECAPS");
   const macrosRow = macrosSheet.getLastRow();
 
   const date = macrosSheet.getRange(macrosRow, COLS.TIMESTAMP).getValue(),
-        totalCarbs = macrosSheet.getRange(macrosRow, COLS.CARBS_TODAY).getValue(),
-        totalFats = macrosSheet.getRange(macrosRow, COLS.FATS_TODAY).getValue(),
-        totalProteins = macrosSheet.getRange(macrosRow, COLS.PROTEINS_TODAY).getValue(),
-        totalCalories = macrosSheet.getRange(macrosRow, COLS.CALORIES_TODAY).getValue();
+    totalCarbs = macrosSheet.getRange(macrosRow, COLS.CARBS_TODAY).getValue(),
+    totalFats = macrosSheet.getRange(macrosRow, COLS.FATS_TODAY).getValue(),
+    totalProteins = macrosSheet
+      .getRange(macrosRow, COLS.PROTEINS_TODAY)
+      .getValue(),
+    totalCalories = macrosSheet
+      .getRange(macrosRow, COLS.CALORIES_TODAY)
+      .getValue();
 
-  const formattedDate = Utilities.formatDate(date, Session.getScriptTimeZone(), "MM/dd/yyyy")
+  const formattedDate = Utilities.formatDate(
+    date,
+    Session.getScriptTimeZone(),
+    "MM/dd/yyyy"
+  );
 
-  const totals = [formattedDate, totalCarbs, totalFats, totalProteins, totalCalories];
+  const totals = [
+    formattedDate,
+    totalCarbs,
+    totalFats,
+    totalProteins,
+    totalCalories,
+  ];
 
   recapsSheet.appendRow(totals);
   SEND_RECAP_NOTIFICATION(...totals);
 }
 
-function SEND_RECAP_NOTIFICATION(formattedDate, totalCarbs, totalFats, totalProteins, totalCalories) {
+function SEND_RECAP_NOTIFICATION(
+  formattedDate,
+  totalCarbs,
+  totalFats,
+  totalProteins,
+  totalCalories
+) {
   try {
-    const email = PropertiesService.getScriptProperties().getProperty('EMAIL_ADDRESS');
+    const email =
+      PropertiesService.getScriptProperties().getProperty("EMAIL_ADDRESS");
     GmailApp.sendEmail(
       email,
       `Macros Summary for ${formattedDate}`,
       `
       Macros summary for ${formattedDate}:
-        Carbs: ${parseFloat(totalCarbs).toFixed(2)} (${CREATE_EVAL_STRING(parseFloat(totalCarbs), RANGES.carbs)})
-        Fats: ${parseFloat(totalFats).toFixed(2)} (${CREATE_EVAL_STRING(parseFloat(totalFats), RANGES.fats)})
-        Proteins: ${parseFloat(totalProteins).toFixed(2)} (${CREATE_EVAL_STRING(parseFloat(totalProteins), RANGES.proteins)})
-        Calories: ${parseFloat(totalCalories).toFixed(2)} (${CREATE_EVAL_STRING(parseFloat(totalCalories), RANGES.calories)})
+        Carbs: ${parseFloat(totalCarbs).toFixed(2)} (${CREATE_EVAL_STRING(
+        parseFloat(totalCarbs),
+        RANGES.carbs
+      )})
+        Fats: ${parseFloat(totalFats).toFixed(2)} (${CREATE_EVAL_STRING(
+        parseFloat(totalFats),
+        RANGES.fats
+      )})
+        Proteins: ${parseFloat(totalProteins).toFixed(2)} (${CREATE_EVAL_STRING(
+        parseFloat(totalProteins),
+        RANGES.proteins
+      )})
+        Calories: ${parseFloat(totalCalories).toFixed(2)} (${CREATE_EVAL_STRING(
+        parseFloat(totalCalories),
+        RANGES.calories
+      )})
       `
-    )
+    );
   } catch (e) {
-    Logger.log('Error sending email notification: ' + error);
+    Logger.log("Error sending email notification: " + error);
   }
 }
 
 function SEND_WARNING_NOTIFICATION(subject, message) {
   try {
-    const email = PropertiesService.getScriptProperties().getProperty('EMAIL_ADDRESS');
+    const email =
+      PropertiesService.getScriptProperties().getProperty("EMAIL_ADDRESS");
     GmailApp.sendEmail(email, subject, message);
   } catch (e) {
-    Logger.log('Error sending email notification: ' + error);
+    Logger.log("Error sending email notification: " + error);
   }
-
 }
 
 function CREATE_EVAL_STRING(total, range) {
   switch (true) {
     case total < range.yellowBase:
-      return "Much too low"
+      return "Much too low";
     case total >= range.yellowBase && total < range.greenBase:
-      return "A little low"
+      return "A little low";
     case total >= range.greenBase && total <= range.greenCeil:
-      return "Perfect"
+      return "Perfect";
     case total > range.greenCeil && total <= range.yellowCeil:
-      return "A little high"
+      return "A little high";
     default:
-      return "Much too high"
+      return "Much too high";
   }
 }
+
+console.log("test change");
