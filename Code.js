@@ -31,14 +31,18 @@ const COLS = {
   QUANTITY: 3,
   UNITS: 4,
   BRAND_INFO: 5,
-  CARBS: 6,
-  FATS: 7,
-  PROTEINS: 8,
-  CALORIES: 9,
-  CARBS_TODAY: 10,
-  FATS_TODAY: 11,
-  PROTEINS_TODAY: 12,
-  CALORIES_TODAY: 13,
+  CARBS_MANUAL: 6,
+  FATS_MANUAL: 7,
+  PROTEINS_MANUAL: 8,
+  CALORIES_MANUAL: 9,
+  CARBS: 10,
+  FATS: 11,
+  PROTEINS: 12,
+  CALORIES: 13,
+  CARBS_TODAY: 14,
+  FATS_TODAY: 15,
+  PROTEINS_TODAY: 16,
+  CALORIES_TODAY: 17,
 };
 
 function GET_MACROS(item, quantity, units, brandInfo) {
@@ -134,11 +138,28 @@ function ON_FORM_SUBMIT(e) {
   const quantity = sheet.getRange(row, COLS.QUANTITY).getValue();
   const unit = sheet.getRange(row, COLS.UNITS).getValue() ?? "unit(s)";
   const brandInfo = sheet.getRange(row, COLS.BRAND_INFO).getValue();
+  const carbsManual = sheet.getRange(row, COLS.CARBS_MANUAL).getValue();
+  const fatsManual = sheet.getRange(row, COLS.FATS_MANUAL).getValue();
+  const proteinsManual = sheet.getRange(row, COLS.PROTEINS_MANUAL).getValue();
+  const caloriesManual = sheet.getRange(row, COLS.CALORIES_MANUAL).getValue();
 
-  if (foodItem && quantity && unit) {
-    const result = GET_MACROS(foodItem, quantity, unit, brandInfo);
+  if (foodItem) {
+    let result;
+    if (quantity) {
+      result = GET_MACROS(foodItem, quantity, unit, brandInfo);
+    } else if (
+      !Number.isNaN(carbsManual) &&
+      !Number.isNaN(fatsManual) &&
+      !Number.isNaN(proteinsManual) &&
+      !Number.isNaN(caloriesManual)
+    ) {
+      result = [[carbsManual, fatsManual, proteinsManual, caloriesManual]];
+    }
+
     if (result) {
       sheet.getRange(row, COLS.CARBS, 1, 4).setValues(result);
+    } else {
+      throw Error("Insufficient data entry");
     }
 
     const today = new Date();
@@ -289,5 +310,3 @@ function CREATE_EVAL_STRING(total, range) {
       return "Much too high";
   }
 }
-
-console.log("test change");
