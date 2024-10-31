@@ -145,7 +145,7 @@ function ON_FORM_SUBMIT(e) {
 
   if (foodItem) {
     let result;
-    if (quantity) {
+    if (quantity && unit) {
       result = GET_MACROS(foodItem, quantity, unit, brandInfo);
     } else if (
       !Number.isNaN(carbsManual) &&
