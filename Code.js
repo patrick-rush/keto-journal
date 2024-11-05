@@ -70,7 +70,7 @@ function GET_MACROS(item, quantity, units, brandInfo) {
       },
       {
         role: "user",
-        content: `Estimate the fat, carbohydrates, fiber, proteins, and calories for ${quantity} ${units} of ${item}.`,
+        content: queryContent,
       },
     ],
     functions: [
