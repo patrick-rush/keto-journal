@@ -43,6 +43,8 @@ const COLS = {
   FATS_TODAY: 15,
   PROTEINS_TODAY: 16,
   CALORIES_TODAY: 17,
+  SAVE: 18,
+  SAVED_FOOD_ITEM: 19,
 };
 
 function GET_MACROS(item, quantity, units, brandInfo) {
@@ -131,35 +133,79 @@ function GET_MACROS(item, quantity, units, brandInfo) {
 
 function ON_FORM_SUBMIT(e) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("MACROS");
+  const savedItemsSheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("SAVED INPUTS");
 
   const row = sheet.getLastRow();
 
-  const foodItem = sheet.getRange(row, COLS.FOOD_ITEM).getValue();
-  const quantity = sheet.getRange(row, COLS.QUANTITY).getValue();
-  const unit = sheet.getRange(row, COLS.UNITS).getValue() ?? "unit(s)";
+  let foodItem = sheet.getRange(row, COLS.FOOD_ITEM).getValue();
+  const quantity = sheet.getRange(row, COLS.QUANTITY).getValue() || 1;
+  const unit = sheet.getRange(row, COLS.UNITS).getValue() || "unit(s)";
   const brandInfo = sheet.getRange(row, COLS.BRAND_INFO).getValue();
-  const carbsManual = sheet.getRange(row, COLS.CARBS_MANUAL).getValue();
-  const fatsManual = sheet.getRange(row, COLS.FATS_MANUAL).getValue();
-  const proteinsManual = sheet.getRange(row, COLS.PROTEINS_MANUAL).getValue();
-  const caloriesManual = sheet.getRange(row, COLS.CALORIES_MANUAL).getValue();
+  let carbsManual = sheet.getRange(row, COLS.CARBS_MANUAL).getValue();
+  let fatsManual = sheet.getRange(row, COLS.FATS_MANUAL).getValue();
+  let proteinsManual = sheet.getRange(row, COLS.PROTEINS_MANUAL).getValue();
+  let caloriesManual = sheet.getRange(row, COLS.CALORIES_MANUAL).getValue();
+  const save = Boolean(sheet.getRange(row, COLS.SAVE).getValue());
+  const savedFoodItem = sheet.getRange(row, COLS.SAVED_FOOD_ITEM).getValue();
+
+  if (savedFoodItem) {
+    const columnValues = savedItemsSheet.getRange("A:A").getValues().flat();
+    let valueRow;
+    for (let row = 0; row < columnValues.length; row++) {
+      if (columnValues[row] === savedFoodItem) {
+        valueRow = row + 1;
+      }
+    }
+
+    if (!valueRow) throw new Error("INVALID SAVED FOOD ITEM INPUT");
+
+    foodItem = savedFoodItem;
+    sheet.getRange(row, COLS.FOOD_ITEM).setValue(foodItem);
+    carbsManual =
+      Number(savedItemsSheet.getRange(valueRow, 2).getValue()) * quantity;
+    fatsManual =
+      Number(savedItemsSheet.getRange(valueRow, 3).getValue()) * quantity;
+    proteinsManual =
+      Number(savedItemsSheet.getRange(valueRow, 4).getValue()) * quantity;
+    caloriesManual =
+      Number(savedItemsSheet.getRange(valueRow, 5).getValue()) * quantity;
+
+    Logger.log({
+      valueRow,
+      savedFoodItem,
+      foodItem,
+      carbsManual,
+      fatsManual,
+      proteinsManual,
+      caloriesManual,
+    });
+  }
 
   if (foodItem) {
     let result;
-    if (quantity && unit) {
-      result = GET_MACROS(foodItem, quantity, unit, brandInfo);
-    } else if (
+    if (
       !Number.isNaN(carbsManual) &&
       !Number.isNaN(fatsManual) &&
       !Number.isNaN(proteinsManual) &&
       !Number.isNaN(caloriesManual)
     ) {
       result = [[carbsManual, fatsManual, proteinsManual, caloriesManual]];
+    } else {
+      result = GET_MACROS(foodItem, quantity, unit, brandInfo);
     }
 
     if (result) {
       sheet.getRange(row, COLS.CARBS, 1, 4).setValues(result);
     } else {
       throw Error("Insufficient data entry");
+    }
+
+    if (save) {
+      const rowData = [foodItem, ...result[0].map((macro) => macro / quantity)];
+      savedItemsSheet.appendRow(rowData);
+
+      UPDATE_FORM_DROPDOWN();
     }
 
     const today = new Date();
@@ -210,6 +256,27 @@ function ON_FORM_SUBMIT(e) {
         ).toFixed(2)} carbs today.`
       );
     }
+  }
+}
+
+function UPDATE_FORM_DROPDOWN() {
+  const formId =
+    PropertiesService.getScriptProperties().getProperty("KETO_FORM_ID");
+
+  const form = FormApp.openById(formId);
+  const question = form.getItems(FormApp.ItemType.LIST)[0].asListItem();
+
+  const savedItemsSheet =
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName("SAVED INPUTS");
+  const values = savedItemsSheet
+    .getRange("A2:A" + savedItemsSheet.getLastRow())
+    .getValues()
+    .flat();
+
+  try {
+    question.setChoiceValues(values);
+  } catch (err) {
+    Logger.log("Error updating form dropdown: " + err);
   }
 }
 
