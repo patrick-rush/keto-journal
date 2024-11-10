@@ -142,10 +142,12 @@ function ON_FORM_SUBMIT(e) {
   const quantity = sheet.getRange(row, COLS.QUANTITY).getValue() || 1;
   const unit = sheet.getRange(row, COLS.UNITS).getValue() || "unit(s)";
   const brandInfo = sheet.getRange(row, COLS.BRAND_INFO).getValue();
-  let carbsManual = sheet.getRange(row, COLS.CARBS_MANUAL).getValue();
-  let fatsManual = sheet.getRange(row, COLS.FATS_MANUAL).getValue();
-  let proteinsManual = sheet.getRange(row, COLS.PROTEINS_MANUAL).getValue();
-  let caloriesManual = sheet.getRange(row, COLS.CALORIES_MANUAL).getValue();
+  let carbsManual = sheet.getRange(row, COLS.CARBS_MANUAL).getValue() || null;
+  let fatsManual = sheet.getRange(row, COLS.FATS_MANUAL).getValue() || null;
+  let proteinsManual =
+    sheet.getRange(row, COLS.PROTEINS_MANUAL).getValue() || null;
+  let caloriesManual =
+    sheet.getRange(row, COLS.CALORIES_MANUAL).getValue() || null;
   const save = Boolean(sheet.getRange(row, COLS.SAVE).getValue());
   const savedFoodItem = sheet.getRange(row, COLS.SAVED_FOOD_ITEM).getValue();
 
@@ -184,12 +186,7 @@ function ON_FORM_SUBMIT(e) {
 
   if (foodItem) {
     let result;
-    if (
-      !Number.isNaN(carbsManual) &&
-      !Number.isNaN(fatsManual) &&
-      !Number.isNaN(proteinsManual) &&
-      !Number.isNaN(caloriesManual)
-    ) {
+    if (carbsManual && fatsManual && proteinsManual && caloriesManual) {
       result = [[carbsManual, fatsManual, proteinsManual, caloriesManual]];
     } else {
       result = GET_MACROS(foodItem, quantity, unit, brandInfo);
@@ -202,7 +199,9 @@ function ON_FORM_SUBMIT(e) {
     }
 
     if (save) {
-      const rowData = [foodItem, ...result[0].map((macro) => macro / quantity)];
+      let name = foodItem;
+      if (brandInfo) name += ` (${brandInfo})`;
+      const rowData = [name, ...result[0].map((macro) => macro / quantity)];
       savedItemsSheet.appendRow(rowData);
 
       UPDATE_FORM_DROPDOWN();
